@@ -27,3 +27,6 @@ debug_runs.py
 
 # pyscripts
 **/py_scripts
+
+# ignore travis file for now
+.travis.yml

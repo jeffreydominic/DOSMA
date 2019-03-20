@@ -1,9 +1,13 @@
 import unittest
+import difflib
+
+import sys
+sys.path.append('../')
+from data_io.nifti_io import NiftiReader, NiftiWriter
+from data_io.dicom_io import DicomReader, DicomWriter
 
 
 class TestNiftiIO(unittest.TestCase):
-    from data_io.nifti_io import NiftiReader, NiftiWriter
-
     load_filepath = '../dicoms/h07-unittest/dess-e1-itksnap.nii.gz'
     save_filepath = '../dicoms/h07-unittest/dess-e1-niftiwriter.nii.gz'
 
@@ -32,8 +36,6 @@ class TestNiftiIO(unittest.TestCase):
 
 
 class TestDicomIO(unittest.TestCase):
-    from data_io.dicom_io import DicomReader, DicomWriter
-
     dr = DicomReader()
     dw = DicomWriter()
 
@@ -55,8 +57,6 @@ class TestDicomIO(unittest.TestCase):
         :param h2:
         :return:
         """
-        import difflib
-
         rep = []
         for dataset in (h1, h2):
             lines = str(dataset).split("\n")
@@ -223,8 +223,6 @@ class TestDicomIO(unittest.TestCase):
 
 
 class TestInterIO(unittest.TestCase):
-    from data_io.nifti_io import NiftiReader, NiftiWriter
-    from data_io.dicom_io import DicomReader, DicomWriter
 
     nr = NiftiReader()
     nw = NiftiWriter()
