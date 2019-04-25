@@ -1,14 +1,15 @@
 import inspect
-# bool --> booltype, default, checkbox
-# filepath (str) --> stringtype, default, load file
-# str --> stringtype, default, textbox
-# float/int -->
+
 import tkinter as tk
 from tkinter import ttk
 
 from dosma import BASIC_TYPES
 from gui.gui_utils.filedialog_reader import FileDialogReader
-
+from scan_sequences import QDess, CubeQuant
+# bool --> booltype, default, checkbox
+# filepath (str) --> stringtype, default, load file
+# str --> stringtype, default, textbox
+# float/int -->
 
 class TextWithVar(tk.Text):
     '''A text widget that accepts a 'textvariable' option'''
@@ -173,3 +174,7 @@ def format_bool_gui(root, label, type_var, **kwargs):
     t.pack(side='left', anchor='nw', padx=5)
 
     return hbox
+
+
+# Alternative scan names
+ALTERNATIVE_SCAN_NAMES = {QDess: ('dess',) , CubeQuant: ('cube',)}

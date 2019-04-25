@@ -1,28 +1,34 @@
 import matplotlib
-
 matplotlib.use("TkAgg")
+
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import matplotlib.pyplot as plt
-import numpy as np
 
+import os
+import numpy as np
+import pydicom
+
+import Pmw
+from skimage.measure import label
+from skimage.color import label2rgb
 from tkinter import filedialog, messagebox, Radiobutton, IntVar
 import tkinter as tk
 from tkinter import ttk
 
-from gui.im_viewer import IndexTracker
 from data_io import format_io_utils as fio_utils
-import os
 from data_io.orientation import SAGITTAL, CORONAL, AXIAL
-from skimage.measure import label
-from skimage.color import label2rgb
-from gui.preferences_viewer import PreferencesManager
 
-LARGE_FONT = ("Verdana", 12)
 from dosma import SUPPORTED_SCAN_TYPES, parse_args, SUPPORTED_QUANTITATIVE_VALUES
 from msk import knee
+
 from gui.dosma_gui import ScanReader
 from gui.gui_utils.filedialog_reader import FileDialogReader
-import Pmw
+from gui.gui_utils.gutil import ALTERNATIVE_SCAN_NAMES
+from gui.im_viewer import IndexTracker
+from gui.preferences_viewer import PreferencesManager
+
+
+LARGE_FONT = ("Verdana", 12)
 
 
 class DosmaViewer(tk.Tk):
@@ -130,7 +136,6 @@ class AnalysisFrame(tk.Frame):
             if not tissue_str:
                 raise ValueError('No tissues selected')
 
-
             qv_str = ''
             for c, qv in enumerate(self.manager[self.__QUANTITATIVE_VALUES_KEY]):
                 if qv.get():
@@ -148,10 +153,10 @@ class AnalysisFrame(tk.Frame):
 
             # analysis string
             str_f = '--l %s %s knee %s --pid %s %s %s' % (load_path,
-                                                       preferences_str,
-                                                       tissue_str,
-                                                       pid,
-                                                       '--ml' if medial_to_lateral else '',
+                                                          preferences_str,
+                                                          tissue_str,
+                                                          pid,
+                                                          '--ml' if medial_to_lateral else '',
                                                           qv_str)
             str_f = str_f.strip()
             parse_args(str_f.split())
@@ -161,7 +166,8 @@ class AnalysisFrame(tk.Frame):
     def __init_manager(self):
         self.manager[self.__LOAD_PATH_KEY] = tk.StringVar()
         self.manager[self.__TISSUES_KEY] = [tk.BooleanVar() for i in range(len(knee.SUPPORTED_TISSUES))]
-        self.manager[self.__QUANTITATIVE_VALUES_KEY] = [tk.BooleanVar() for i in range(len(SUPPORTED_QUANTITATIVE_VALUES))]
+        self.manager[self.__QUANTITATIVE_VALUES_KEY] = [tk.BooleanVar() for i in
+                                                        range(len(SUPPORTED_QUANTITATIVE_VALUES))]
 
         self.manager[self.__PID_KEY] = tk.StringVar()
         self.manager[self.__MEDIAL_TO_LATERAL_ORIENTATION_KEY] = tk.BooleanVar()
@@ -310,8 +316,10 @@ class DosmaFrame(tk.Frame):
     def __init_manager(self):
         self.manager[self.__SCAN_KEY] = tk.StringVar()
         self.manager[self.__TISSUES_KEY] = [tk.BooleanVar() for i in range(len(knee.SUPPORTED_TISSUES))]
+
         self.manager[self.__DATA_KEY] = tk.StringVar()
         self.manager[self.__DATA_PATH_KEY] = tk.StringVar()
+        self.manager[self.__DATA_PATH_KEY].trace_add('write', self.__update_scan_type)
 
         self.manager[self.__SCAN_KEY].trace_add('write', self.__on_scan_change)
         self.manager[self.__SAVE_PATH_KEY] = tk.StringVar()
@@ -346,6 +354,42 @@ class DosmaFrame(tk.Frame):
         if selected_option == self.__LOAD_PATH_KEY:
             self.manager[self.__SAVE_PATH_KEY].set(fp)
 
+    def __update_scan_type(self, *args):
+        # Currently do not handle load data case
+        if not self.manager[self.__DATA_KEY].get() == self.__DICOM_PATH_KEY:
+            return
+
+        # Load any dicom file in the path to get the SeriesDescription to help set the scan type
+        dicom_path = self.manager[self.__DATA_PATH_KEY].get()
+        if not dicom_path or not os.path.isdir(dicom_path):
+            return
+
+        temp_filepath = None
+        for f in os.listdir(dicom_path):
+            if f.lower().endswith('.dcm'):
+                temp_filepath = os.path.join(dicom_path, f)
+
+        if not temp_filepath:
+            return
+
+        series_description = pydicom.read_file(temp_filepath).SeriesDescription
+        scan_name = None
+
+        # Find if scan.NAME or any alternative names appear in the series description
+        for scan_type in SUPPORTED_SCAN_TYPES:
+            alternative_names = ALTERNATIVE_SCAN_NAMES[scan_type]
+            possible_names = alternative_names + (scan_type.NAME, )
+            for n in possible_names:
+                if n.lower() in series_description.lower():
+                    scan_name = scan_type.NAME
+                    break
+
+        if not scan_name:
+            tk.messagebox.showerror(ValueError, 'Scan type not found in series description - please select scan type below')
+            return
+
+        self.manager[self.__SCAN_KEY].set(scan_name)
+
     def __display_data_loader(self):
         s_var = self.manager[self.__DATA_PATH_KEY]
 
@@ -367,9 +411,9 @@ class DosmaFrame(tk.Frame):
 
         hb = tk.Frame(self)
 
-        #filedialog = FileDialogReader(self.manager[self.__SAVE_PATH_KEY])
         b = tk.Button(hb, text=self.__SAVE_PATH_KEY,
-                      command=lambda fd=self.file_dialog_reader: self.manager[self.__SAVE_PATH_KEY].set(fd.get_save_dirpath()))
+                      command=lambda fd=self.file_dialog_reader: self.manager[self.__SAVE_PATH_KEY].set(
+                          fd.get_save_dirpath()))
         b.pack(side='left', anchor='nw', pady=10)
 
         l = tk.Label(hb, textvariable=self.manager[self.__SAVE_PATH_KEY])

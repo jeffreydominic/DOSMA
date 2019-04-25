@@ -23,6 +23,9 @@ class IndexTracker():
 
     def update(self):
         x_im = self._x_normalized
+        num_slices = x_im.shape[2]
+        self.ind = 0 if self.ind >= num_slices else self.ind
+
         x_im = np.squeeze(x_im[:, :, self.ind, :])
         if self.im is None:
             self.im = self.ax.imshow(x_im, cmap='gray')
