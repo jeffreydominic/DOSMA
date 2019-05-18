@@ -18,19 +18,11 @@ from data_io.format_io import DataReader, DataWriter, ImageDataFormat
 from data_io.med_volume import MedicalVolume
 from defaults import AFFINE_DECIMAL_PRECISION, SCANNER_ORIGIN_DECIMAL_PRECISION
 from utils import io_utils
+from typing import Union
 
-__DICOM_EXTENSIONS__ = ('.dcm',)
+__all__ = ['DicomReader', 'DicomWriter']
+
 TOTAL_NUM_ECHOS_KEY = (0x19, 0x107e)
-
-
-def contains_dicom_extension(a_str: str):
-    """
-    Check if a string ends with one of the accepted dicom extensions
-    :param a_str: a string
-    :return: a boolean
-    """
-    bool_list = [a_str.endswith(ext) for ext in __DICOM_EXTENSIONS__]
-    return bool(sum(bool_list))
 
 
 def __update_np_dtype__(np_array, bit_depth):
@@ -124,12 +116,13 @@ class DicomReader(DataReader):
     """
     data_format_code = ImageDataFormat.dicom
 
-    def load(self, dicom_dirpath):
+    def load(self, dicom_dirpath, groupby='EchoNumbers', ignore_ext=False):
         """Load dicoms into numpy array
 
         Required:
         :param dicom_dirpath: string path to directory where dicoms are stored
-
+        :param groupby: Group dicoms by tag. Default: 'EchoNumbers'
+        :param ignore_ext: Ignore '.dcm' extension when loading files
         :return list of MedicalVolumes
 
         :raises NotADirectoryError if dicom pat does not exist or is not a directory
@@ -141,33 +134,44 @@ class DicomReader(DataReader):
         if not os.path.isdir(dicom_dirpath):
             raise NotADirectoryError("Directory %s does not exist" % dicom_dirpath)
 
+        if not groupby:
+            raise ValueError('`group_by` must be specified, even if there are not multiple volumes encoded in dicoms')
+
         possible_files = os.listdir(dicom_dirpath)
 
         lstFilesDCM = []
         for f in possible_files:
-            if contains_dicom_extension(f):
+            # if ignore extension, don't look for .dcm extension
+            match_ext = ignore_ext or (not ignore_ext and self.data_format_code.is_filetype(f))
+            is_file = os.path.isfile(os.path.join(dicom_dirpath, f))
+            is_hidden_file = f.startswith('.')
+            if is_file and match_ext and not is_hidden_file:
                 lstFilesDCM.append(os.path.join(dicom_dirpath, f))
 
         lstFilesDCM = natsorted(lstFilesDCM)
         if len(lstFilesDCM) == 0:
             raise FileNotFoundError("No files found in directory %s" % dicom_dirpath)
 
-        # Get reference file
-        ref_dicom = pydicom.read_file(lstFilesDCM[0])
+        # Check if dicom file has the groupby element specified
+        temp_dicom = pydicom.read_file(lstFilesDCM[0], force=True)
+
+        if not temp_dicom.get(groupby):
+            raise ValueError('Tag %s does not exist in dicom' % groupby)
 
         dicom_data = {}
 
         for dicom_filename in lstFilesDCM:
             # read the file
             ds = pydicom.read_file(dicom_filename, force=True)
-            echo_number = ds.EchoNumbers
-            echo_ind = echo_number - 1
+            val_groupby = ds.get(groupby)
+            if type(val_groupby) is pydicom.DataElement:
+                val_groupby = val_groupby.value
 
-            if echo_ind not in dicom_data.keys():
-                dicom_data[echo_ind] = {'headers': [], 'arr': []}
+            if val_groupby not in dicom_data.keys():
+                dicom_data[val_groupby] = {'headers': [], 'arr': []}
 
-            dicom_data[echo_ind]['headers'].append(ds)
-            dicom_data[echo_ind]['arr'].append(ds.pixel_array)
+            dicom_data[val_groupby]['headers'].append(ds)
+            dicom_data[val_groupby]['arr'].append(ds.pixel_array)
 
         vols = []
         for k in sorted(list(dicom_data.keys())):
@@ -234,7 +238,7 @@ class DicomWriter(DataWriter):
             raise ValueError('MedicalVolume headers must be initialized to save as a dicom')
 
         affine = LPSplus_to_RASplus(headers)
-        orientation = stdo.__orientation_nib_to_standard__(nib.aff2axcodes(affine))
+        orientation = stdo.orientation_nib_to_standard(nib.aff2axcodes(affine))
 
         # Currently do not support mismatch in scanner_origin
         if tuple(affine[:3, 3]) != im.scanner_origin:

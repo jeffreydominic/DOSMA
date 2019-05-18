@@ -9,17 +9,18 @@ import time
 
 import defaults
 import file_constants as fc
-from data_io.format_io import ImageDataFormat, SUPPORTED_FORMATS
-from models.get_model import SUPPORTED_MODELS
-from models.get_model import get_model
+from data_io.format_io import ImageDataFormat
+from models.util import SUPPORTED_MODELS
+from models.util import get_model
 from models.model import SegModel
 from msk import knee
 from scan_sequences.cube_quant import CubeQuant
+from scan_sequences.mapss import Mapss
 from scan_sequences.qdess import QDess
 from tissues.tissue import Tissue
 from utils.quant_vals import QuantitativeValues as QV
 from data_io.fig_format import SUPPORTED_VISUALIZATION_FORMATS
-
+import ast
 
 SUPPORTED_QUANTITATIVE_VALUES = [QV.T2, QV.T1_RHO, QV.T2_STAR]
 
@@ -28,6 +29,9 @@ DEBUG_KEY = 'debug'
 DICOM_KEY = 'dicom'
 SAVE_KEY = 'save'
 LOAD_KEY = 'load'
+IGNORE_EXT_KEY = 'ignore_ext'
+SPLIT_BY_KEY = 'split_by'
+
 DATA_FORMAT_KEY = 'format'
 VISUALIZATION_FORMAT_KEY = 'vis_format'
 GPU_KEY = 'gpu'
@@ -41,7 +45,7 @@ SEGMENTATION_BATCH_SIZE_KEY = 'batch_size'
 
 TISSUES_KEY = 'tissues'
 
-SUPPORTED_SCAN_TYPES = [QDess, CubeQuant]
+SUPPORTED_SCAN_TYPES = [QDess, CubeQuant, Mapss]
 BASIC_TYPES = [bool, str, float, int, list, tuple]
 
 
@@ -50,6 +54,7 @@ def get_nargs_for_basic_type(base_type):
         return 1
     elif base_type in [list, tuple]:
         return '+'
+
 
 def add_tissues(parser):
     for tissue in knee.SUPPORTED_TISSUES:
@@ -166,6 +171,7 @@ def add_base_argument(parser: argparse.ArgumentParser, param_name, param_type, p
                         help=param_help,
                         required=not has_default)
 
+
 def parse_basic_type(val, param_type):
     if type(val) is param_type:
         return val
@@ -177,6 +183,7 @@ def parse_basic_type(val, param_type):
     if type(val) is list and nargs == 1:
         return val[0]
     return param_type(val) if val else val
+
 
 def add_scans(dosma_subparser):
     for scan in SUPPORTED_SCAN_TYPES:
@@ -216,7 +223,7 @@ def add_scans(dosma_subparser):
                 if param_type is inspect._empty:
                     raise ValueError(
                         'scan %s, action %s, param %s does not have an annotation. Use pytying in the method declaration' % (
-                        scan.NAME, func_name, param_name))
+                            scan.NAME, func_name, param_name))
 
                 # see if the type is a custom type, if not handle it as a basic type
                 is_custom_arg = add_custom_argument(action_parser, param_type)
@@ -240,7 +247,10 @@ def handle_scan(vargin):
             scan = p_scan
             break
 
-    scan = scan(dicom_path=vargin[DICOM_KEY], load_path=vargin[LOAD_KEY])
+    scan = scan(dicom_path=vargin[DICOM_KEY], load_path=vargin[LOAD_KEY],
+                ignore_ext=vargin[IGNORE_EXT_KEY],
+                split_by=vargin[SPLIT_BY_KEY] if vargin[SPLIT_BY_KEY] else scan.__DEFAULT_SPLIT_BY__)
+
     tissues = vargin['tissues']
     scan_action = vargin[SCAN_ACTION_KEY]
 
@@ -252,6 +262,10 @@ def handle_scan(vargin):
 
     # search for name in the cmd_line actions
     action = p_action
+
+    if action is None:
+        scan.save_data(vargin[SAVE_KEY], data_format=vargin[DATA_FORMAT_KEY])
+        return
 
     func_signature = inspect.signature(action)
     parameters = func_signature.parameters
@@ -281,6 +295,15 @@ def handle_scan(vargin):
 
     return scan
 
+def parse_dicom_tag_splitby(vargin_str):
+    if not vargin_str:
+        return vargin_str
+
+    try:
+        parsed_str = ast.literal_eval(vargin_str)
+        return parsed_str
+    except:
+        return vargin_str
 
 def parse_args(f_input=None):
     """Parse arguments given through command line (argv)
@@ -304,8 +327,14 @@ def parse_args(f_input=None):
     parser.add_argument('--s', '--%s' % SAVE_KEY, metavar='S', type=str, default=None, nargs='?',
                         dest=SAVE_KEY,
                         help='path to data directory to save to. Default: L/D')
+    parser.add_argument('--%s' % IGNORE_EXT_KEY, action='store_true', default=False,
+                        dest=IGNORE_EXT_KEY,
+                        help='ignore .dcm extension when loading dicoms. Default: False')
+    parser.add_argument('--%s' % SPLIT_BY_KEY, metavar='G', type=str, default=None, nargs='?',
+                        dest=SPLIT_BY_KEY,
+                        help='override dicom tag to split volumes by (eg. `EchoNumbers`)')
 
-    supported_format_names = [data_format.name for data_format in SUPPORTED_FORMATS]
+    supported_format_names = [data_format.name for data_format in ImageDataFormat]
     parser.add_argument('--df', '--%s' % DATA_FORMAT_KEY, metavar='F', type=str,
                         dest=DATA_FORMAT_KEY,
                         default=defaults.DEFAULT_OUTPUT_IMAGE_DATA_FORMAT.name, nargs='?',
@@ -348,6 +377,8 @@ def parse_args(f_input=None):
 
     if gpu is not None:
         os.environ['CUDA_VISIBLE_DEVICES'] = gpu
+    if not gpu:
+        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     dicom_path = vargin[DICOM_KEY]
     load_path = vargin[LOAD_KEY]
@@ -367,6 +398,8 @@ def parse_args(f_input=None):
     vargin['tissues'] = tissues
     vargin[DATA_FORMAT_KEY] = ImageDataFormat[vargin[DATA_FORMAT_KEY]]
     defaults.DEFAULT_FIG_FORMAT = vargin[VISUALIZATION_FORMAT_KEY]
+
+    vargin[SPLIT_BY_KEY] = parse_dicom_tag_splitby(vargin[SPLIT_BY_KEY])
 
     args.func(vargin)
 
