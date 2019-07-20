@@ -68,8 +68,8 @@ An environment file `envs/dosma_env.yml` file is provided in this repo containin
 
 To automatically install this environment (assumes Anaconda/Miniconda is installed):
 1. Navigate to the DOSMA directory in the Terminal
-2. Run `chmod +x initialize-dosma`
-3. Run `./initialize-dosma`
+2. Run `chmod +x setup`
+3. Run `./setup`
 
 ### Weights
 For pretrained weights for MSK knee segmentation, request access using this [Google form](https://goo.gl/forms/JlxgS3aoUeeUUlVh2). Note that these weights are optimized to run on single-echo RMS DESS sequence as used in the [OsteoArthritis Initiative (OAI)](https://oai.epi-ucsf.org/datarelease/).
@@ -281,7 +281,7 @@ All use cases assume that the [current working directory](https://www.computerho
 
 ```bash
 # 1. Calculate 3D T2 map
-python -m dosma --d research_data/patient01/dess --s research_data/patient01/data --fc qdess t2
+python -m dosma --d research_data/patient01/dess --s research_data/patient01/data qdess --fc t2
 
 # 2. Segment femoral cartilage using root mean square (RMS) of two echo qDESS echos
 python -m dosma --d research_data/patient01/dess --s research_data/patient01/data qdess --fc segment --rms --weights_dir unet_weights

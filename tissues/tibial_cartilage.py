@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 import scipy.ndimage as sni
 
-import defaults
-from data_io import savefig, MedicalVolume
+from data_io import MedicalVolume
+from defaults import preferences
 from tissues.tissue import Tissue
 from utils import io_utils
 from utils.quant_vals import QuantitativeValues
@@ -22,7 +22,7 @@ __all__ = ['TibialCartilage']
 
 
 class TibialCartilage(Tissue):
-    """Handles analysis for meniscus"""
+    """Handles analysis and visualization for tibial cartilage"""
     ID = 2
     STR_ID = 'tc'
     FULL_NAME = 'tibial cartilage'
@@ -32,9 +32,8 @@ class TibialCartilage(Tissue):
 
     # Coronal Keys
     ANTERIOR_KEY = 0
-    CENTRAL_KEY = 1
     POSTERIOR_KEY = 1
-    CORONAL_KEYS = [ANTERIOR_KEY, CENTRAL_KEY, POSTERIOR_KEY]
+    CORONAL_KEYS = [ANTERIOR_KEY, POSTERIOR_KEY]
 
     # Saggital Keys
     MEDIAL_KEY = 0
@@ -51,10 +50,9 @@ class TibialCartilage(Tissue):
         :param weights_dir: Directory to weights files
         :param medial_to_lateral: True or False, if false, then lateral to medial
         """
-        super().__init__(weights_dir=weights_dir)
+        super().__init__(weights_dir=weights_dir, medial_to_lateral=medial_to_lateral)
 
         self.regions_mask = None
-        self.medial_to_lateral = medial_to_lateral
 
     def unroll_axial(self, quant_map):
         mask = self.__mask__.volume
@@ -149,12 +147,12 @@ class TibialCartilage(Tissue):
         df = pd.DataFrame(pd_list, columns=pd_header)
         qv_name = map_type.name
         maps = [{'title': '%s superior' % qv_name, 'data': superior, 'xlabel': 'Slice', 'ylabel': 'Angle (binned)',
-                 'filename': '%s_superior.png' % qv_name, 'raw_data_filename': '%s_superior.data' % qv_name},
+                 'filename': '%s_superior' % qv_name, 'raw_data_filename': '%s_superior.data' % qv_name},
                 {'title': '%s inferior' % qv_name, 'data': inferior, 'xlabel': 'Slice',
-                 'ylabel': 'Angle (binned)', 'filename': '%s_inferior.png' % qv_name,
+                 'ylabel': 'Angle (binned)', 'filename': '%s_inferior' % qv_name,
                  'raw_data_filename': '%s_inferior.data' % qv_name},
                 {'title': '%s total' % qv_name, 'data': total, 'xlabel': 'Slice', 'ylabel': 'Angle (binned)',
-                 'filename': '%s_total.png' % qv_name,
+                 'filename': '%s_total' % qv_name,
                  'raw_data_filename': '%s_total.data' % qv_name}]
 
         self.__store_quant_vals__(maps, df, map_type)
@@ -167,8 +165,7 @@ class TibialCartilage(Tissue):
         self.split_regions(self.__mask__.volume)
 
     def __save_quant_data__(self, dirpath):
-        """Save quantitative data and 2D visualizations of meniscus
-
+        """Save quantitative data and 2D visualizations of tibial cartilage
         Check which quantitative values (T2, T1rho, etc) are defined for meniscus and analyze these
         1. Save 2D total, superficial, and deep visualization maps
         2. Save {'medial', 'lateral'}, {'anterior', 'posterior'}, {'superior', 'inferior', 'total'} data to excel
@@ -198,22 +195,17 @@ class TibialCartilage(Tissue):
                 plt.clf()
 
                 upper_bound = BOUNDS[quant_val]
-                is_picture_written = False
-
-                if defaults.VISUALIZATION_HARD_BOUNDS:
+                if preferences.visualization_use_vmax:
+                    # Hard bounds - clipping
                     plt.imshow(data_map, cmap='jet', vmin=0.0, vmax=BOUNDS[quant_val])
-                    is_picture_written = True
-
-                if defaults.VISUALIZATION_SOFT_BOUNDS and not is_picture_written:
+                else:
+                    # Try to use a soft bounds
                     if np.sum(data_map <= upper_bound) == 0:
                         plt.imshow(data_map, cmap='jet', vmin=0.0, vmax=BOUNDS[quant_val])
-                        is_picture_written = True
                     else:
                         warnings.warn('%s: Pixel value exceeded upper bound (%0.1f). Using normalized scale.'
                                       % (quant_val.name, upper_bound))
-
-                if not is_picture_written:
-                    plt.imshow(data_map, cmap='jet')
+                        plt.imshow(data_map, cmap='jet')
 
                 plt.xlabel(xlabel)
                 plt.ylabel(ylabel)
@@ -222,7 +214,7 @@ class TibialCartilage(Tissue):
                 clb.ax.set_title('(ms)')
                 plt.axis('tight')
 
-                savefig(filepath, dpi=defaults.DEFAULT_DPI)
+                plt.savefig(filepath)
 
                 # Save data
                 raw_data_filepath = os.path.join(q_name_dirpath, 'raw_data', q_map_data['raw_data_filename'])

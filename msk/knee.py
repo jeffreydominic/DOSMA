@@ -7,9 +7,8 @@ Command line interface declaration for knee-related analyses
 
 import uuid
 
-from tissues.femoral_cartilage import FemoralCartilage
-from tissues.meniscus import Meniscus
-from tissues.tibial_cartilage import TibialCartilage
+from defaults import preferences
+from tissues import FemoralCartilage, TibialCartilage, Meniscus, PatellarCartilage
 from utils.quant_vals import QuantitativeValues as QV
 
 KNEE_KEY = 'knee'
@@ -18,9 +17,8 @@ TISSUES_KEY = 'tissues'
 LOAD_KEY = 'load'
 SAVE_KEY = 'save'
 PID_KEY = 'pid'
-DATA_FORMAT_KEY = 'format'
 
-SUPPORTED_TISSUES = [FemoralCartilage, Meniscus, TibialCartilage]
+SUPPORTED_TISSUES = [FemoralCartilage, Meniscus, TibialCartilage, PatellarCartilage]
 SUPPORTED_QUANTITATIVE_VALUES = [QV.T2, QV.T1_RHO, QV.T2_STAR]
 
 
@@ -93,6 +91,6 @@ def handle_knee(vargin):
             tissue.calc_quant_vals()
 
     for tissue in tissues:
-        tissue.save_data(vargin[SAVE_KEY], data_format=vargin[DATA_FORMAT_KEY])
+        tissue.save_data(vargin[SAVE_KEY], data_format=preferences.image_data_format)
 
     return tissues
