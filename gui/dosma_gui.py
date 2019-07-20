@@ -110,7 +110,7 @@ class ScanReader():
 def add_segmentation_gui_parser(params, hbox, balloon):
     # add model
     param_name, param_type, param_default = SEGMENTATION_MODEL_KEY, str, None
-    param_var = gutils.convert_base_type_to_gui(param_name, param_type, param_default, hbox,
+    param_var = gutil.convert_base_type_to_gui(param_name, param_type, param_default, hbox,
                                                 balloon=balloon, param_help='segmentation models',
                                                 options=SUPPORTED_MODELS)
     params[param_name] = (param_var, param_type is not bool)
