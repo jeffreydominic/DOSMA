@@ -1,17 +1,18 @@
 import os, sys
-import matplotlib
-import matplotlib.pyplot as plt
 
-import os
 import numpy as np
-import Pmw
-import tkinter as tk
-
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from skimage.measure import label
 from skimage.color import label2rgb
+
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+import Pmw
+import tkinter as tk
 from tkinter import filedialog, messagebox, Radiobutton, IntVar
 from tkinter import ttk
+
+import pydicom
 
 from dosma.gui.dosma_gui import ScanReader
 from dosma.gui.gui_utils.filedialog_reader import FileDialogReader
@@ -363,11 +364,11 @@ class DosmaFrame(tk.Frame):
             self.manager[self.__SAVE_PATH_KEY].set(fp)
 
     def __update_scan_type(self, *args):
-        # Currently do not handle load data case
+        # Currently do not handle load data case.
         if not self.manager[self.__DATA_KEY].get() == self.__DICOM_PATH_KEY:
             return
 
-        # Load any dicom file in the path to get the SeriesDescription to help set the scan type
+        # Load any dicom file in the path to get the SeriesDescription to help set the scan type.
         dicom_path = self.manager[self.__DATA_PATH_KEY].get()
         if not dicom_path or not os.path.isdir(dicom_path):
             return
@@ -383,7 +384,7 @@ class DosmaFrame(tk.Frame):
         series_description = pydicom.read_file(temp_filepath).SeriesDescription
         scan_name = None
 
-        # Find if scan.NAME or any alternative names appear in the series description
+        # Find if scan.NAME or any alternative names appear in the series description.
         for scan_type in SUPPORTED_SCAN_TYPES:
             alternative_names = ALTERNATIVE_SCAN_NAMES[scan_type]
             possible_names = alternative_names + (scan_type.NAME, )
@@ -393,7 +394,8 @@ class DosmaFrame(tk.Frame):
                     break
 
         if not scan_name:
-            tk.messagebox.showerror(ValueError, 'Scan type not found in series description - please select scan type below')
+            tk.messagebox.showerror(ValueError,
+                                    'Scan type not found in series description - please select scan type below.')
             return
 
         self.manager[self.__SCAN_KEY].set(scan_name)

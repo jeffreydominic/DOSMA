@@ -11,11 +11,11 @@ import shutil
 import yaml
 
 # Parse preferences file
-_file_dirpath = os.path.dirname(os.path.abspath(__file__))
-_internal_preferences_template_filepath = os.path.join(_file_dirpath, 'resources/templates/.preferences.yml')
-_preferences_cmd_line_filepath = os.path.join(_file_dirpath, 'resources/templates/.preferences_cmd_line_schema.yml')
+_lib_dirpath = os.path.dirname(os.path.abspath(__file__))
+_internal_preferences_template_filepath = os.path.join(_lib_dirpath, 'resources/templates/.preferences.yml')
+_preferences_cmd_line_filepath = os.path.join(_lib_dirpath, 'resources/templates/.preferences_cmd_line_schema.yml')
 
-__preferences_filepath__ = os.path.join(_file_dirpath, 'resources/preferences.yml')
+__preferences_filepath__ = os.path.join(_lib_dirpath, 'resources/preferences.yml')
 
 if not os.path.isfile(__preferences_filepath__):
     shutil.copyfile(_internal_preferences_template_filepath, __preferences_filepath__)
