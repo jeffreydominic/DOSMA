@@ -19,7 +19,7 @@ from dosma.utils.geometry_utils import circle_fit, cart2pol
 from dosma.quant_vals import QuantitativeValues
 
 # milliseconds
-BOUNDS = {QuantitativeValues.T2: 60.0,
+BOUNDS = {QuantitativeValues.T2: 80.0,
           QuantitativeValues.T1_RHO: 100.0,
           QuantitativeValues.T2_STAR: 50.0}
 
@@ -292,7 +292,7 @@ class FemoralCartilage(Tissue):
                     curr_region_mask = curr_region_mask * mask * quant_map.volume
 
                     # discard all values that are <= 0
-                    qv_region_vals = curr_region_mask[curr_region_mask > 0]
+                    qv_region_vals = curr_region_mask[(curr_region_mask >=10) & (curr_region_mask <= 80)]
 
                     num_voxels = len(qv_region_vals)
 
